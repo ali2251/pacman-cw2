@@ -129,7 +129,7 @@ class MDPAgent(Agent):
          self.addWallsToMap(state)
          self.updateFoodInMap(state)
          self.map.display()
-         self.updateUtilities(api.walls(state), api.food(state), api.ghosts(state), 1000)
+         self.updateUtilities(api.walls(state), api.food(state), api.ghosts(state), 1000, state)
          self.counter = 0
 
 
@@ -227,7 +227,7 @@ class MDPAgent(Agent):
 
 
      
-    def updateUtilities(self, walls, food, ghosts,num):
+    def updateUtilities(self, walls, food, ghosts,num, state):
 
         change = True
         currentReward = 10
@@ -317,13 +317,15 @@ class MDPAgent(Agent):
                         if (i,j) in food and self.map.getValue(i,j) != 10:
                             reward = 10
                         if (i,j) in ghosts or (i+1,j) in ghosts or (i-1,j) in ghosts or (i, j+1) in ghosts or (i,j-1) in ghosts or (i+1, j+1) in ghosts or (i+1, j-1) in ghosts or (i-1, j+1) in ghosts or (i-1, j-1) in ghosts:
-                            # edibleGhosts = api.ghostStatesWithTimer()
-                            # if edibleGhosts[0][1] < 1:
-                            if (len(food) > 2):
-                                reward = -10
-                            else:
-                                if (i,j) in ghosts:
-                                    reward = -10   
+                            edibleGhosts = api.ghostStatesWithTimer(state)
+                            for e in edibleGhosts:
+                                if e[1] < 1:
+                                    print "************************************************************************"    
+                                    if (len(food) > 2):
+                                        reward = -10
+                                    else:
+                                        if (i,j) in ghosts:
+                                            reward = -10   
 
                             
 
@@ -419,7 +421,7 @@ class MDPAgent(Agent):
 
         # if self.counter > 100 or len(food) <= 2:
         #     self.counter = 0
-        self.updateUtilities(walls, theFood, ghostArray, 100)
+        self.updateUtilities(walls, theFood, ghostArray, 100, state)
 
 
 
