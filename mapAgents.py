@@ -113,7 +113,7 @@ class Grid:
 # makes the display look nice. Other values will probably work better
 # for decision making.
 #
-class MDPAgent(Agent):
+class MapAgent(Agent):
 
     # The constructor. We don't use this to create the map because it
     # doesn't have access to state information.
@@ -129,16 +129,13 @@ class MDPAgent(Agent):
          self.addWallsToMap(state)
          self.updateFoodInMap(state)
          self.map.display()
-         #Run the value iteration 1000 times at the start as it will stabilise the values for later on
-         self.updateUtilities(api.walls(state), api.food(state), api.ghosts(state), 1000, state)
+         self.updateUtilities(api.walls(state), api.food(state), api.ghosts(state), 1000)
          self.counter = 0
-       
 
 
     # This is what gets run when the game ends.
     def final(self, state):
         print "Looks like I just died!"
-        self.counter = 0
 
     # Make a map by creating a grid of the right size
     def makeMap(self,state):
@@ -169,7 +166,7 @@ class MDPAgent(Agent):
 
     # Functions to manipulate the map.
     #
-    # Put every element in the list of wall elements into the map and set the value to -5
+    # Put every element in the list of wall elements into the map
     def addWallsToMap(self, state):
         walls = api.walls(state)
         for i in range(len(walls)):
@@ -178,88 +175,110 @@ class MDPAgent(Agent):
     # Create a map with a current picture of the food that exists.
     def updateFoodInMap(self, state):
         # First, make all grid elements that aren't walls blank.
-        # Set the blank spaces to -3 and walls are set to -5
         for i in range(self.map.getWidth()):
             for j in range(self.map.getHeight()):
                 if self.map.getValue(i, j) != -5:
                     self.map.setValue(i, j, -3)
-        
-        #Get the food and for each food coordinate, add it to the map and set the value to 10
-        food = api.food(state)    
+        food = api.food(state)
+        pacman = api.whereAmI(state)
+
+        value = 100000
+        foo = Directions.WEST
+            #find closest food
+    
         for i in range(len(food)):
+            # for j in range(len(food)):
+            #     temp = util.manhattanDistance(pacman,food[j])
+            #     if temp < value:
+            #         value = temp;
+            #         foo = food[j]
+
+       
+            # val = 10 + value * -1   
             self.map.setValue(food[i][0], food[i][1], 10)
         
 
-    #This is the main method which applies value iteration and can be thought of as the MDP Solver
-    # @param self : passed implicitly, used to call functions within the object
-    # @param walls: walls array
-    # @param food : food array in the current state
-    # @param ghosts : ghost array in the current state
-    # @param num : number of times value iteration must be run - Value iteration will always be run num + 1 times
-    # @param state : current state
-     
-    def updateUtilities(self, walls, food, ghosts,num, state):
 
-        # Outer most loop which decides how many times value iteration must be run
+        
+            
+        # for ghost in api.ghosts(state):
+        #     self.map.setValue(int(ghost[0]), int(ghost[1]), -20)    
+    
+    def updateGhosts(self, ghosts):
+        for ghost in ghosts:
+            g0 = int(ghost[0])
+            g1 = int(ghost[1])
+            self.map.setValue(g0,g1,-4)
+            print "values now are ", self.map.getValue(g0,g1)
+            print "values set to ", g0, " ", g1
+
+    def getShortestGhostDistance(self, pacman, ghosts):
+        
+        if (len(ghosts) == 0):
+            return 0
+
+        minDistance = 10000
+        for ghost in ghosts:
+            temp = util.manhattanDistance(ghost, pacman)
+            if temp < minDistance:
+                minDistance = temp
+
+        return minDistance
+
+
+     
+    def updateUtilities(self, walls, food, ghosts,num):
+
+        change = True
+        currentReward = 10
+
+        # while change == True:
+
         for i in range(0,num):
 
-            #gemma value to feed into bellman equation
-            gemma = 0.1
+            gemma = 1
             
-            #Iterate over the map and get each square which isnt a wall, wall is represented as -5
+
             for i in range(self.map.getWidth()):
                 for j in range(self.map.getHeight()):
-                    #get the current value
                     current = self.map.getValue(i, j)
-                    #check that its not a wall
                     if current != -5:
-                        # Look at all neighbouring states which the pacman can go to 
+                        alist = []
                         north1 = (i, j+1)
                         south1 = (i, j-1)
                         east = (i+1, j)
                         west = (i-1, j)
-
-
-                        #A list to keep all neighbouring states
-                        coordinatesForNeighbourStates = []
-                      
-                        # A map to check which neighbours are the walls
+                        oldValue = self.map.getValue(i,j)
                         wallMap = dict()
 
                     
-                        # A list to store the values of all possible outcomes and for bellman to pick the maximum value from this list
+
+
+                      
+
                         values = []
 
-                        # Add all neighbours to the list
-                        coordinatesForNeighbourStates.append(north1)
-                        coordinatesForNeighbourStates.append(south1)
-                        coordinatesForNeighbourStates.append(east)
-                        coordinatesForNeighbourStates.append(west)
+                        alist.append(north1)
+                        alist.append(south1)
+                        alist.append(east)
+                        alist.append(west)
 
-
-                        #Set which of the neighbors are walls and which ones are actually squares - Simple boolean representation
-                        # True means a neighbor is a wall and False means its not a wall
-                        for coord in coordinatesForNeighbourStates:
-                            if coord in walls:
-                                wallMap[coord] = True
+                        for a in alist:
+                            if a in walls:
+                                wallMap[a] = True
                             else:
-                                wallMap[coord] = False
+                                wallMap[a] = False
 
                           
-                        #Iterate over all neighbors
-                        for val in coordinatesForNeighbourStates:
-                            #Check that the neighbour is not a wall and it is within the grid
+
+                        for val in alist:
                             if val not in walls and val[0] < self.map.getWidth() and val[1] < self.map.getHeight():
                                 
-                                #Initialise the probabbilities for ending up in neighbouring state
                                 pNorth = 0.1
                                 pSouth = 0.1
                                 pEast = 0.1
                                 pWest = 0.1
 
-                                #Compute for each of the neighburing state, the maximum expected utility,
-                                # as with a wall it will end up in the current state, otherwise take the value from the neighbour state
-                                # Do this for all neighbours (except walls) 
                                 if wallMap[north1] == True:
                                     pNorth = 0.1 * self.map.getValue(val[0], val[1])
                                 else:
@@ -280,146 +299,207 @@ class MDPAgent(Agent):
                                 else:
                                     pWest = 0.1 * self.map.getValue(west[0], west[1])
 
-                                #Compute the MEU for a move which is whether west or east, as it can end up in south or north with a probability of 0.1
+
                                 if val == west or val == east:
                                     temp =  0.8 * self.map.getValue(val[0], val[1]) + pSouth + pNorth
                                     values.append(temp)
-                                #Compute the EU for north or south move, it can end up in east or south and the case if east/west is a wall it will end up in the same state
+
                                 if val == north1 or val == south1:
                                     temp =  0.8 * self.map.getValue(val[0],val[1]) + pEast + pWest 
                                     values.append(temp)
                                             
                         
-                             
-                        #Get the maximum value from the above computed values                     
+                        #print(values , " -----------------------------------------")        
+                                            
                         m = max(values)
-
-                        #Get the right hand side of bellman 
                         rightBellman = gemma * m;
-
-                        #initiate the reward to -0.1
                         reward = -0.1
-                        #Decide what the reward will be based on whether there is Food/ghosts in that square. 
-                        # Its kept in mind that neighbours of the ghost state are as deadly as the ghost state itself
-                        # since ghosts move and they will be in one of its  neighbour states next, hence pacman should avoid 
-                        # not just ghost squares but its neighbours too. 
-
-                        #Check that the the current sqaure has food and does not have the reward already
                         if (i,j) in food and self.map.getValue(i,j) != 10:
                             reward = 10
-
-                        #Check that the current square or any of its neighbours do not hace a ghosts in it
-                        if (i,j) in ghosts or (i+1,j) in ghosts or (i-1,j) in ghosts or (i, j+1) in ghosts or (i,j-1) in ghosts or (i+1, j+1) in ghosts or (i+1, j-1) in ghosts or (i-1, j+1) in ghosts or (i-1, j-1) in ghosts:    
-                            # When the food is low and ghosts are near the food then all neighbours cannot be negatives rewards
+                        if (i,j) in ghosts or (i+1,j) in ghosts or (i-1,j) in ghosts or (i, j+1) in ghosts or (i,j-1) in ghosts or (i+1, j+1) in ghosts or (i+1, j-1) in ghosts or (i-1, j+1) in ghosts or (i-1, j-1) in ghosts:
+                            # edibleGhosts = api.ghostStatesWithTimer()
+                            # if edibleGhosts[0][1] < 1:
                             if (len(food) > 2):
                                 reward = -10
                             else:
-                                #Food is low and ghost should be avoided but food should be eaten hence only consider adjacent neighbours
-                                if (i,j) in ghosts or (i+1,j) in ghosts or (i-1,j) in ghosts or (i, j+1) in ghosts or (i,j-1) in ghosts:
-                                    # set the reward to -10
+                                if (i,j) in ghosts:
                                     reward = -10   
 
-                                                            
-                        #final bellman value      
-                        bellman = reward + rightBellman  
-
-                        #set the sqaure value to the bellman value
-                        self.map.setValue(i,j,bellman)    
+                            
 
 
-    # A utility method which decides how many times value iteration must be called based on the amount of food remaining in the grid
-    # The less the food, the more number of times it will take to get a good policy (in restricted time)
-    def valueIteration(self, walls, food, ghostArray, state):
-        if (len(food) < 3):
-            self.updateUtilities(walls, food, ghostArray, 100, state)
-        else:
-            self.updateUtilities(walls, food, ghostArray, 50, state)
+                                
+
+                        leftBellman = reward + rightBellman
+
+                        if oldValue == leftBellman:
+                            #print "----------------------old value and new value is the same-------------------"
+                            change = False
+                        else:
+                            change = True    
 
 
-    # The function which calculates the next move by applying MEU formula on the current sqaure to find the best move
-    # It follows the same structure as updateUtilities function
-    # @returns a direction, ie Directions.West
+                        self.map.setValue(i,j,leftBellman)    
 
-    def getNextMoveBasedOnMEU(self, state):
 
-        #Initialise all varibles with data from the api
+
+
+
+
+                    # value = 100000
+                    # collection = []
+                    # foodDict = dict()
+                    # foo = west
+                    #     #find closest food
+                
+                    # for i in range(len(food)):
+                    #     temp = util.manhattanDistance((i,j),food[i])
+                    #     collection.append(temp)
+                    #     foodDict[temp] = food[i] 
+                    #     if temp < value:
+                    #         value = temp;
+                    #         foo = food[i]
+
+                    # if value < closestDistance:
+                    #     val = 10 + closestDistance * -1 * self.map.getValue(int(foo[0]),int(foo[1])) * gemma    
+                    #     self.map.setValue(int(foo[0]),int(foo[1]), value)
+                    #     closestDistance = value;
+
+
+                    # if (i,j) in ghosts:
+                    #     reward = -15
+        # reward = self.map.getValue(move[0], move[1])
+        #     print "reward is ===============", reward
+
+        #     if mapOfLegal[move] == west:
+        #         #north or south
+        #         temp = reward + 0.8 * reward + 0.1 * self.map.getValue(northCoord[0], northCoord[1]) + 0.1 * self.map.getValue(southCoord[0], southCoord[1])
+        #         moves.append((temp, west))
+
+        #     if mapOfLegal[move] == south:
+        #         #east or west
+        #         temp = reward + 0.8 * reward + 0.1 * self.map.getValue(westCoord[0], westCoord[1]) + 0.1 * self.map.getValue(eastCoord[0], eastCoord[1])
+        #         moves.append((temp, south))
+
+
+        #     if mapOfLegal[move] == east:
+        #         #north or south
+        #         temp = reward + 0.8 * reward + 0.1 * self.map.getValue(northCoord[0], northCoord[1]) + 0.1 * self.map.getValue(southCoord[0], southCoord[1])
+        #         moves.append((temp, east))
+
+
+        #     if mapOfLegal[move] == north:
+        #         #west or east
+        #         temp = reward + 0.8 * reward + 0.1 * self.map.getValue(westCoord[0], westCoord[1]) + 0.1 * self.map.getValue(eastCoord[0], eastCoord[1])
+        #         moves.append((temp, north))
+       
+
+ 
+    # For now I just move randomly, but I display the map to show my progress
+    def getAction(self, state):
+        #self.updateFoodInMap(state)
+        self.map.prettyDisplay()
+
+        self.counter = self.counter + 1
+
+
+
         walls = api.walls(state)
+        corners = api.corners(state)
         legal = api.legalActions(state)
         pacman = api.whereAmI(state)
+        theFood = api.food(state)
         west = Directions.WEST
         east = Directions.EAST
         south = Directions.SOUTH
         north = Directions.NORTH
         ghostArray = api.ghosts(state)
         food = api.food(state)
+        
+
+        # if self.counter > 100 or len(food) <= 2:
+        #     self.counter = 0
+        self.updateUtilities(walls, theFood, ghostArray, 100)
 
 
-        # Initialise all the lists and maps
-        coordinatesForLegalMoves = []
-        mapOfLegalCoordinatesToDirection = dict()
-        coordinatesForNeighbourStates = []
-        directionToCoordinateMap = dict()
+
+
+        #self.updateGhosts(ghostArray)
+
+        dist = self.getShortestGhostDistance(pacman, ghostArray)
+
+        # if dist < 5 and dist != 0:
+        #self.updateUtilities(walls, theFood, ghostArray)
+
+
+        value = 100000
+        mapOfWorld = dict()
+        legalCoordinates = []
+        mapOfLegal = dict()
+        distances = []
+        moves = []
+        alist = []
+        moveToCoordMap = dict()
         wallMap = dict()
 
-        #Remove STOP move from legal if it exists
         if Directions.STOP in legal:
             legal.remove(Directions.STOP)
 
-        #Find the coordinates for neighbour states of pacman - they all represent a potential move 
+
+        
+
+
         westCoord = (pacman[0]-1, pacman[1])
         eastCoord = (pacman[0]+1, pacman[1])  
         northCoord =  (pacman[0], pacman[1]+1)
         southCoord = (pacman[0], pacman[1]-1)
 
-        #reset the value of the map of pacman's position since pacman visisted the state
+
         self.map.setValue(pacman[0],pacman[1], 1)
 
-        #Iterate over the legal moves and update the maps to have a representation of the neighbour states in maps
         for l in legal:
-            #check for each possible move and update the map accordingly
             if l == west:
-                coordinatesForLegalMoves.append(westCoord)
-                mapOfLegalCoordinatesToDirection[westCoord] = west
-                directionToCoordinateMap[west] = westCoord
+                legalCoordinates.append(westCoord)
+                mapOfLegal[westCoord] = west
+                moveToCoordMap[west] = westCoord
             if l == east:
-                coordinatesForLegalMoves.append(eastCoord) 
-                mapOfLegalCoordinatesToDirection[eastCoord] = east
-                directionToCoordinateMap[east] = eastCoord
+                legalCoordinates.append(eastCoord) 
+                mapOfLegal[eastCoord] = east
+                moveToCoordMap[east] = eastCoord
             if l == north:
-                coordinatesForLegalMoves.append(northCoord)
-                mapOfLegalCoordinatesToDirection[northCoord] = north
-                directionToCoordinateMap[north] = northCoord
+                legalCoordinates.append(northCoord)
+                mapOfLegal[northCoord] = north
+                moveToCoordMap[north] = northCoord
             if l == south:
-                coordinatesForLegalMoves.append(southCoord)
-                mapOfLegalCoordinatesToDirection[southCoord] = south
-                directionToCoordinateMap[south] = southCoord          
+                legalCoordinates.append(southCoord)
+                mapOfLegal[southCoord] = south
+                moveToCoordMap[south] = southCoord          
 
 
         values = []
 
-        #Add all neighbours to the list
-        coordinatesForNeighbourStates.append(northCoord)
-        coordinatesForNeighbourStates.append(southCoord)
-        coordinatesForNeighbourStates.append(eastCoord)
-        coordinatesForNeighbourStates.append(westCoord)
+        alist.append(northCoord)
+        alist.append(southCoord)
+        alist.append(eastCoord)
+        alist.append(westCoord)
 
-        #check which of the neighbour is a wall and set the boolean value in the map accordingly
-        for neighbour in coordinatesForNeighbourStates:
-            if neighbour in walls:
-                wallMap[neighbour] = True
+        for a in alist:
+            if a in walls:
+                wallMap[a] = True
             else:
-                wallMap[neighbour] = False
- 
-        # for every neighbour check that its not a wall and its within the grid
-        for val in coordinatesForNeighbourStates:
+                wallMap[a] = False
+
+
+
+          
+
+        for val in alist:
             if val not in walls and val[0] < self.map.getWidth() and val[1] < self.map.getHeight():
-                #initialise the probabilities
                 pNorth = 0.1
                 pSouth = 0.1
                 pEast = 0.1
                 pWest = 0.1
 
-                #calculate the expected utility based on whether its a wall or not
                 if wallMap[northCoord] == True:
                     pNorth = 0.1 * self.map.getValue(val[0], val[1])
                 else:
@@ -440,7 +520,7 @@ class MDPAgent(Agent):
                 else:
                     pWest = 0.1 * self.map.getValue(westCoord[0], westCoord[1])
 
-                #for each possible move, calculate the expected utility
+
                 if val == westCoord:
                     temp =  0.8 * self.map.getValue(val[0], val[1]) + pNorth + pSouth
                     values.append((temp, west))
@@ -456,53 +536,116 @@ class MDPAgent(Agent):
                             
         
 
-        #initialisation of variables to record the maximum value and move 
+        #print(values , " -----------------------------------------")        
+                            
+        # m = max(values[0])
+        # rightBellman = gemma * m;
+        # reward = -1
+        # if (i,j) in food:
+        #     reward = 10 
+
+
+                
+
+        # leftBellman = reward + rightBellman
+
+        #self.map.setValue(i,j,leftBellman)
+
         maximum = -10
         moveToMake = random.choice(legal)
       
-        # Find the maximum value from the list of expected utilities
+
+        print moves
+
         for m in values:
             if m[0] > maximum:
                 maximum = m[0]
                 moveToMake = m[1]
 
-
-        #check with the map that the move calculated will not kill pacman and if it wont then proceed with returning it
-        deathMove = False
+        t = False
         for g in ghostArray:
-            if directionToCoordinateMap[moveToMake] == g:
-                deathMove = True
+            if moveToCoordMap[moveToMake] == g:
+                t = True
     
-        if deathMove == False:
+        if t == False:
             direction = moveToMake
         else:
+            print "++++++++++++++++++++++++++++++++++++++++"
             if (len(legal) > 1):
                 legal.remove(moveToMake);
                 direction = random.choice(legal)
             else:
                 direction = moveToMake
 
-        #return the best direction
-        return direction
+        # print mapOfLegal        
+
+        # for move in legalCoordinates:
+        #     reward = self.map.getValue(move[0], move[1])
+        #     print "reward is ===============", reward
+
+        #     if mapOfLegal[move] == west:
+        #         #north or south
+        #         temp = reward + 0.8 * reward + 0.1 * self.map.getValue(northCoord[0], northCoord[1]) + 0.1 * self.map.getValue(southCoord[0], southCoord[1])
+        #         moves.append((temp, west))     
+
+
+        #     if mapOfLegal[move] == south:
+        #         #east or west
+        #         temp = reward + 0.8 * reward + 0.1 * self.map.getValue(westCoord[0], westCoord[1]) + 0.1 * self.map.getValue(eastCoord[0], eastCoord[1])
+        #         moves.append((temp, south))
+
+
+        #     if mapOfLegal[move] == east:
+        #         #north or south
+        #         temp = reward + 0.8 * reward + 0.1 * self.map.getValue(northCoord[0], northCoord[1]) + 0.1 * self.map.getValue(southCoord[0], southCoord[1])
+        #         moves.append((temp, east))
+        #         # for i in range(len(food)):
+        #         #     temp = util.manhattanDistance(move,food[i])
+        #         #     if temp < value:
+        #         #         value = temp;
+        #         #         foo = food[i]
+
+        #         # distances.append((value, east))
+
+
+
+        #     if mapOfLegal[move] == north:
+        #         #west or east
+        #         temp = reward + 0.8 * reward + 0.1 * self.map.getValue(westCoord[0], westCoord[1]) + 0.1 * self.map.getValue(eastCoord[0], eastCoord[1])
+        #         moves.append((temp, north))
+
     
-    def getAction(self, state):
+
+
+
+        # for d in distances:
+        #     if d[0] < minimum:
+        #         minimum = d[0]
+        #         moveShould = d[1]
+
+
+
+        print "--------------------> max is ", maximum
+
+      
+                   
+
         
-        #Initialise all variables
-        walls = api.walls(state)
-        ghostArray = api.ghosts(state)
-        food = api.food(state)
-        legal = api.legalActions(state)
-        
-        #Run value iteration and update the map
-        self.valueIteration(walls, food, ghostArray, state)
 
-        #Get the direction based on MEU 
-        direction = self.getNextMoveBasedOnMEU(state)
+        print "MEU Choice *****************", moveToMake
 
+        # if maximum < 0:
+        #     direction = random.choice(legal);
 
+        #get the direction to go from getNextDirection
+        # getNextDirection(pacman, self.corner, walls, legal, theFood, ghostArray)
         #return with a move
         return api.makeMove(direction, legal)
 
 
+
+         # Random choice between the legal options.
+        #return api.makeMove(random.choice(legal), legal)
+    
 
    
