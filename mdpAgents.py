@@ -316,16 +316,12 @@ class MDPAgent(Agent):
                         reward = -0.1
                         if (i,j) in food and self.map.getValue(i,j) != 10:
                             reward = 10
-                        if (i,j) in ghosts or (i+1,j) in ghosts or (i-1,j) in ghosts or (i, j+1) in ghosts or (i,j-1) in ghosts or (i+1, j+1) in ghosts or (i+1, j-1) in ghosts or (i-1, j+1) in ghosts or (i-1, j-1) in ghosts:
-                            edibleGhosts = api.ghostStatesWithTimer(state)
-                            for e in edibleGhosts:
-                                if e[1] < 1:
-                                    print "************************************************************************"    
-                                    if (len(food) > 2):
-                                        reward = -10
-                                    else:
-                                        if (i,j) in ghosts:
-                                            reward = -10   
+                        if (i,j) in ghosts or (i+1,j) in ghosts or (i-1,j) in ghosts or (i, j+1) in ghosts or (i,j-1) in ghosts or (i+1, j+1) in ghosts or (i+1, j-1) in ghosts or (i-1, j+1) in ghosts or (i-1, j-1) in ghosts:    
+                            if (len(food) > 2):
+                                reward = -10
+                            else:
+                                if (i,j) in ghosts or (i+1,j) in ghosts or (i-1,j) in ghosts or (i, j+1) in ghosts or (i,j-1) in ghosts:
+                                    reward = -10   
 
                             
 
@@ -421,7 +417,10 @@ class MDPAgent(Agent):
 
         # if self.counter > 100 or len(food) <= 2:
         #     self.counter = 0
-        self.updateUtilities(walls, theFood, ghostArray, 100, state)
+        if (len(food) < 3):
+            self.updateUtilities(walls, theFood, ghostArray, 1000, state)
+        else:
+            self.updateUtilities(walls, theFood, ghostArray, 80, state)
 
 
 
